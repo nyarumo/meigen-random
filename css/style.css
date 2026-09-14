@@ -1,0 +1,173 @@
+:root {
+  --bg: #f3eee4;
+  --fg: #2b2824;
+  --muted: #7c766c;
+  --line: #d8d0c2;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1a18;
+    --fg: #ece6db;
+    --muted: #9c958a;
+    --line: #3a372f;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    "Yu Gothic", YuGothic, Meiryo, sans-serif;
+  line-height: 1.7;
+}
+
+.page {
+  min-height: 100dvh;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 12vh 1.5rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.mast {
+  margin-bottom: 3.5rem;
+}
+
+.mast time {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+}
+
+.mast h1 {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+}
+
+.quote {
+  flex: 1 1 auto;
+}
+
+.quote-text {
+  margin: 0;
+  font-family: "Hiragino Mincho ProN", "Yu Mincho", YuMincho, "Noto Serif JP",
+    "HGS明朝E", serif;
+  font-size: clamp(1.35rem, 2.6vw, 1.85rem);
+  font-weight: 500;
+  line-height: 1.9;
+  letter-spacing: 0.03em;
+  overflow-wrap: break-word;
+  line-break: strict;
+  text-wrap: pretty;
+}
+
+.quote-text::before {
+  content: "「";
+}
+
+.quote-text::after {
+  content: "」";
+}
+
+.quote-text.is-status {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.quote-text.is-status::before,
+.quote-text.is-status::after {
+  content: none;
+}
+
+.byline {
+  margin: 2.25rem 0 0;
+  font-size: 1.05rem;
+}
+
+.speaker:not(:empty)::before {
+  content: "—— ";
+}
+
+.source {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.toolbar {
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.toolbar button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.7rem 0;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.28em;
+}
+
+.toolbar button:hover {
+  color: var(--muted);
+}
+
+.toolbar button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 4px;
+}
+
+.source-pick {
+  display: flex;
+  gap: 1.15rem;
+  margin-top: 0.35rem;
+}
+
+.source-pick button {
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+}
+
+.source-pick button[aria-pressed="true"],
+.source-pick button[aria-pressed="true"]:hover {
+  color: var(--fg);
+  cursor: default;
+}
+
+.source-pick button[aria-pressed="false"]:hover {
+  color: var(--fg);
+}
+
+noscript p {
+  max-width: 40rem;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
