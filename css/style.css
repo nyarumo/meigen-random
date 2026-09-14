@@ -37,7 +37,10 @@ body {
   min-height: 100dvh;
   max-width: 40rem;
   margin: 0 auto;
-  padding: 12vh 1.5rem 2.5rem;
+  padding: max(12vh, calc(env(safe-area-inset-top) + 2rem))
+    max(1.5rem, env(safe-area-inset-right))
+    max(2.5rem, calc(env(safe-area-inset-bottom) + 1rem))
+    max(1.5rem, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
 }
