@@ -123,6 +123,12 @@ body {
   border-top: 1px solid var(--line);
 }
 
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.4rem;
+}
+
 .toolbar button {
   appearance: none;
   background: none;
@@ -141,9 +147,24 @@ body {
   color: var(--muted);
 }
 
-.toolbar button:focus-visible {
+.toolbar button:focus-visible,
+.share-x:focus-visible {
   outline: 2px solid var(--fg);
   outline-offset: 4px;
+}
+
+.share-x {
+  display: inline-block;
+  padding: 0.7rem 0;
+  color: var(--fg);
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  text-decoration: underline;
+  text-underline-offset: 0.28em;
+}
+
+.share-x:hover {
+  color: var(--muted);
 }
 
 .source-pick {

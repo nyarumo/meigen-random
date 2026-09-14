@@ -7,7 +7,9 @@ const {
   readStoredOverride,
   writeStoredOverride,
   quoteForToday,
-  pickReplacement
+  pickReplacement,
+  composeXPost,
+  xIntentUrl
 } = require("../js/today.js");
 
 function memoryStorage(initial) {
@@ -129,5 +131,24 @@ assert.notStrictEqual(
   defaultQuoteIndex("2026-09-14", QUOTES.length),
   defaultQuoteIndex("2026-09-15", QUOTES.length)
 );
+
+const post = composeXPost({
+  text: "想像力は知識より大切だ。",
+  speaker: "アルバート・アインシュタイン"
+});
+assert.ok(post.indexOf("想像力は知識より大切だ。") !== -1);
+assert.ok(post.indexOf("アルバート・アインシュタイン") !== -1);
+assert.ok(xIntentUrl({ text: "想像力は知識より大切だ。", speaker: "アインシュタイン" }).indexOf("https://x.com/intent/tweet?text=") === 0);
+const long = composeXPost({
+  text: "あ".repeat(200),
+  speaker: "テスト"
+});
+assert.ok(xWeightedOk(long), "tweet stays within X length");
+
+function xWeightedOk(s) {
+  var n = 0;
+  for (var i = 0; i < s.length; i++) n += s.charCodeAt(i) <= 0x7f ? 1 : 2;
+  return n <= 280;
+}
 
 console.log("ok — " + QUOTES.length + " quotes");

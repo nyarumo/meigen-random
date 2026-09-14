@@ -1,4 +1,4 @@
-var CACHE = "meigen-shell-v1";
+var CACHE = "meigen-shell-v2";
 var ASSETS = [
   "./",
   "./index.html",

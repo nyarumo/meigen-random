@@ -4,6 +4,7 @@
   var speakerEl = document.getElementById("speaker");
   var sourceEl = document.getElementById("source");
   var anotherBtn = document.getElementById("another");
+  var shareX = document.getElementById("share-x");
   var sourceButtons = document.querySelectorAll("[data-source]");
   var current = null;
   var mode = "both";
@@ -24,6 +25,8 @@
     textEl.textContent = message;
     speakerEl.textContent = "";
     sourceEl.textContent = "";
+    shareX.hidden = true;
+    shareX.removeAttribute("href");
   }
 
   function render(quote, iso) {
@@ -34,6 +37,8 @@
     textEl.textContent = quote.text;
     speakerEl.textContent = quote.speaker;
     sourceEl.textContent = quote.source;
+    shareX.href = xIntentUrl(quote);
+    shareX.hidden = false;
   }
 
   function pool() {

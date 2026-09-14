@@ -115,6 +115,36 @@ function pickReplacement(quotes, currentId, rand) {
   return others[Math.floor(roll() * others.length)];
 }
 
+function xWeightedLength(text) {
+  var n = 0;
+  var s = String(text || "");
+  for (var i = 0; i < s.length; i++) {
+    n += s.charCodeAt(i) <= 0x7f ? 1 : 2;
+  }
+  return n;
+}
+
+function composeXPost(quote) {
+  var speaker = (quote && quote.speaker) || "";
+  var text = (quote && quote.text) || "";
+  var suffix = "\n—— " + speaker;
+  function pack(body) {
+    return "「" + body + "」" + suffix;
+  }
+  if (xWeightedLength(pack(text)) <= 280) return pack(text);
+  var trimmed = text;
+  while (trimmed.length && xWeightedLength(pack(trimmed + "…")) > 280) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return pack(trimmed + "…");
+}
+
+function xIntentUrl(quote) {
+  return (
+    "https://x.com/intent/tweet?text=" + encodeURIComponent(composeXPost(quote))
+  );
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     STORAGE_KEY: STORAGE_KEY,
@@ -126,6 +156,8 @@ if (typeof module !== "undefined" && module.exports) {
     writeStoredOverride: writeStoredOverride,
     quoteById: quoteById,
     quoteForToday: quoteForToday,
-    pickReplacement: pickReplacement
+    pickReplacement: pickReplacement,
+    composeXPost: composeXPost,
+    xIntentUrl: xIntentUrl
   };
 }
