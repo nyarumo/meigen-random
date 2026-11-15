@@ -2,6 +2,8 @@ const assert = require("assert");
 const { QUOTES } = require("../js/quotes.js");
 const { YOJIJUKUGO } = require("../js/yojijukugo.js");
 const { KOJISEIGO } = require("../js/kojiseigo.js");
+const { KOTOWAZA } = require("../js/kotowaza.js");
+const { KANYOUKU } = require("../js/kanyouku.js");
 const {
   readStoredOverride,
   writeStoredOverride,
@@ -14,7 +16,8 @@ const {
   parseWiktionaryEntry,
   stripWordWiki,
   sampleWordTitles,
-  poolForKind
+  poolForKind,
+  isPhraseTitle
 } = require("../js/words-net.js");
 
 function memoryStorage(initial) {
@@ -37,6 +40,8 @@ function xWeightedOk(s) {
 
 assert.ok(YOJIJUKUGO.length >= 30, "about 30 yojijukugo");
 assert.ok(KOJISEIGO.length >= 30, "about 30 koji");
+assert.ok(KOTOWAZA.length >= 30, "about 30 kotowaza");
+assert.ok(KANYOUKU.length >= 30, "about 30 kanyouku");
 
 const quoteIds = {};
 QUOTES.forEach(function (q) {
@@ -70,8 +75,18 @@ KOJISEIGO.forEach(function (item) {
   assert.ok(!seenText[item.text], "dup " + item.text);
   seenText[item.text] = item.kind;
 });
+KOTOWAZA.forEach(function (item) {
+  checkWord(item, "kotowaza");
+  assert.ok(!seenText[item.text], "dup " + item.text);
+  seenText[item.text] = item.kind;
+});
+KANYOUKU.forEach(function (item) {
+  checkWord(item, "kanyouku");
+  assert.ok(!seenText[item.text], "dup " + item.text);
+  seenText[item.text] = item.kind;
+});
 
-const ids = YOJIJUKUGO.concat(KOJISEIGO).map(function (item) {
+const ids = YOJIJUKUGO.concat(KOJISEIGO, KOTOWAZA, KANYOUKU).map(function (item) {
   return item.id;
 });
 assert.strictEqual(new Set(ids).size, ids.length, "word ids are unique");
@@ -260,12 +275,77 @@ sampled.forEach(function (title) {
   assert.ok(titles.indexOf(title) !== -1);
 });
 
+assert.strictEqual(isPhraseTitle("ことわざ"), false);
+assert.strictEqual(isPhraseTitle("慣用句"), false);
+assert.strictEqual(isPhraseTitle("猿も木から落ちる"), true);
+assert.strictEqual(isPhraseTitle("Wiktionary:依頼"), false);
+
+const saru = [
+  "{{kana-DEFAULTSORT|さるもきからおちる}}",
+  "=={{L|ja}}==",
+  "{{ja-idiom|さるもきからおちる}}",
+  "# その道の名人でも、失敗することがある。"
+].join("\n");
+const saruItem = parseWiktionaryEntry("猿も木から落ちる", saru, "kotowaza");
+assert.strictEqual(saruItem.reading, "さるもきからおちる");
+assert.ok(saruItem.meaning.indexOf("失敗") !== -1);
+assert.strictEqual(saruItem.kind, "kotowaza");
+assert.strictEqual(parseWiktionaryEntry("ことわざ", saru, "kotowaza"), null);
+assert.strictEqual(parseWiktionaryEntry("猿も木から落ちる", saru, "yojijukugo"), null);
+
+const ashi = [
+  "{{デフォルトソート:あしをあらう}}",
+  "=={{ja}}==",
+  "{{head|jpn|idiom|head={{ふりがな|足|あし}}を{{おくりがな2|洗|あら|う|あらう}}}}",
+  "# 悪い仕事や仲間から抜けて、堅気になる。"
+].join("\n");
+assert.strictEqual(
+  parseWiktionaryEntry("足を洗う", ashi, "kanyouku").reading,
+  "あしをあらう"
+);
+assert.strictEqual(parseWiktionaryEntry("慣用句", ashi, "kanyouku"), null);
+
+const hana = [
+  "{{DEFAULTSORT:はなよりたんこ}}",
+  "=={{ja}}==",
+  "=== ことわざ ===",
+  "[[カテゴリ:{{ja}} ことわざ]]",
+  "'''{{ふりがな|花|はな}}より{{ふりがな|団子|だんご}}'''",
+  "# 風流より実利を重んじること。"
+].join("\n");
+assert.strictEqual(
+  parseWiktionaryEntry("花より団子", hana, "kotowaza").reading,
+  "はなよりだんご"
+);
+
+const niwatori = [
+  "{{kana-DEFAULTSORT|にわとりがさきか、たまごがさきか}}",
+  "=={{ja}}==",
+  "# 二つの物事のどちらが先か、分からなくなること。"
+].join("\n");
+assert.strictEqual(
+  parseWiktionaryEntry("鶏が先か、卵が先か", niwatori, "kotowaza").reading,
+  "にわとりがさきかたまごがさきか"
+);
+assert.strictEqual(
+  parseWiktionaryEntry("足を洗う", "=={{ja}}==\n# 短い。", "kanyouku"),
+  null
+);
+
 const stock = {
   quote: QUOTES,
   yojijukugo: YOJIJUKUGO,
-  koji: KOJISEIGO
+  koji: KOJISEIGO,
+  kotowaza: KOTOWAZA,
+  kanyouku: KANYOUKU
 };
-const emptyNet = { quote: [], yojijukugo: [], koji: [] };
+const emptyNet = {
+  quote: [],
+  yojijukugo: [],
+  koji: [],
+  kotowaza: [],
+  kanyouku: []
+};
 assert.strictEqual(poolForKind("quote", "stock", stock, emptyNet).length, QUOTES.length);
 assert.strictEqual(poolForKind("quote", "stock", stock, emptyNet)[0].kind, "quote");
 assert.strictEqual(
@@ -276,8 +356,31 @@ assert.strictEqual(poolForKind("yojijukugo", "net", stock, emptyNet).length, 0);
 assert.strictEqual(poolForKind("koji", "net", stock, emptyNet).length, 0);
 assert.strictEqual(
   poolForKind("all", "stock", stock, emptyNet).length,
-  QUOTES.length + YOJIJUKUGO.length + KOJISEIGO.length
+  QUOTES.length +
+    YOJIJUKUGO.length +
+    KOJISEIGO.length +
+    KOTOWAZA.length +
+    KANYOUKU.length
 );
+assert.strictEqual(
+  poolForKind("expression", "stock", stock, emptyNet).length,
+  YOJIJUKUGO.length + KOJISEIGO.length + KOTOWAZA.length + KANYOUKU.length
+);
+assert.ok(
+  poolForKind("expression", "stock", stock, emptyNet).every(function (item) {
+    return item.kind !== "quote";
+  })
+);
+const expressionKinds = {};
+poolForKind("expression", "stock", stock, emptyNet).forEach(function (item) {
+  expressionKinds[item.kind] = true;
+});
+assert.deepStrictEqual(expressionKinds, {
+  yojijukugo: true,
+  koji: true,
+  kotowaza: true,
+  kanyouku: true
+});
 const netKoji = [
   {
     id: "net-koji-1",
@@ -297,11 +400,24 @@ assert.strictEqual(
   poolForKind("all", "net", stock, { quote: [], yojijukugo: [], koji: netKoji }).length,
   1
 );
+assert.strictEqual(
+  poolForKind("expression", "net", stock, {
+    quote: QUOTES,
+    yojijukugo: [],
+    koji: netKoji,
+    kotowaza: [],
+    kanyouku: []
+  }).length,
+  1
+);
+assert.strictEqual(poolForKind("kotowaza", "net", stock, emptyNet).length, 0);
+assert.strictEqual(poolForKind("kanyouku", "stock", stock, emptyNet).length, KANYOUKU.length);
 
 const storage = memoryStorage();
 writeStoredOverride("2026-09-14", "keep-me", storage, "both");
 writeKindPick("2026-09-14", "yojijukugo", YOJIJUKUGO[0].id, storage, "net");
 writeKindPick("2026-09-14", "koji", KOJISEIGO[0].id, storage, "stock");
+writeKindPick("2026-09-14", "expression", KOTOWAZA[0].id, storage, "both");
 assert.strictEqual(readStoredOverride(storage).id, "keep-me");
 assert.strictEqual(readStoredOverride(storage).source, "both");
 assert.strictEqual(
@@ -309,6 +425,7 @@ assert.strictEqual(
   YOJIJUKUGO[0].id
 );
 assert.strictEqual(kindPickOverride("yojijukugo", "stock", storage), null);
+assert.strictEqual(kindPickOverride("expression", "both", storage).id, KOTOWAZA[0].id);
 const kept = quoteForToday(
   KOJISEIGO,
   "2026-09-14",
@@ -346,7 +463,23 @@ const longPost = composeXPost({
 assert.ok(xWeightedOk(longPost));
 assert.ok(longPost.indexOf("矛盾") !== -1);
 assert.ok(composeXPost(QUOTES[0]).indexOf("「") === 0);
+const kotoPost = composeXPost(KOTOWAZA[0]);
+assert.ok(kotoPost.indexOf("猿も木から落ちる") !== -1);
+assert.ok(kotoPost.indexOf("さるもきからおちる") !== -1);
+assert.ok(xWeightedOk(kotoPost));
+const kanyouPost = composeXPost(KANYOUKU[0]);
+assert.ok(kanyouPost.indexOf("水に流す") !== -1);
+assert.ok(kanyouPost.indexOf("みずにながす") !== -1);
+assert.ok(xWeightedOk(kanyouPost));
 
 console.log(
-  "ok — " + YOJIJUKUGO.length + " yojijukugo, " + KOJISEIGO.length + " koji"
+  "ok — " +
+    YOJIJUKUGO.length +
+    " yojijukugo, " +
+    KOJISEIGO.length +
+    " koji, " +
+    KOTOWAZA.length +
+    " kotowaza, " +
+    KANYOUKU.length +
+    " kanyouku"
 );

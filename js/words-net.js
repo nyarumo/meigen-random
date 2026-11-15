@@ -1,17 +1,22 @@
-// ウィクショナリー日本語版から、四字熟語と故事成語を取る。
+// ウィクショナリー日本語版から、四字熟語・故事成語・諺・慣用句を取る。
 // 表記・読み・意味がそろった項目だけを残す。
 var WORD_CACHE_MS = 7 * 24 * 60 * 60 * 1000;
 var WORD_SAMPLE = 40;
 var WORD_MIN = 8;
 var WORD_API =
   "https://ja.wiktionary.org/w/api.php?action=query&format=json&origin=*";
+var WORD_KINDS = ["yojijukugo", "koji", "kotowaza", "kanyouku"];
 var WORD_CACHE_KEYS = {
   yojijukugo: "meigen-net-yoji-v1",
-  koji: "meigen-net-koji-v1"
+  koji: "meigen-net-koji-v1",
+  kotowaza: "meigen-net-kotowaza-v1",
+  kanyouku: "meigen-net-kanyou-v1"
 };
 var WORD_CATEGORIES = {
   yojijukugo: "カテゴリ:四字熟語",
-  koji: "カテゴリ:故事成語"
+  koji: "カテゴリ:故事成語",
+  kotowaza: "カテゴリ:日本語 ことわざ",
+  kanyouku: "カテゴリ:日本語 慣用句"
 };
 
 function kataToHira(text) {
@@ -26,9 +31,9 @@ function kataToHira(text) {
 }
 
 function asReading(raw) {
-  var h = kataToHira(raw).replace(/[\s　・]/g, "");
+  var h = kataToHira(raw).replace(/[\s　・、。，,.！？!?「」『』（）()]/g, "");
   if (!/^[ぁ-んー]+$/.test(h)) return "";
-  if (h.length < 2 || h.length > 40) return "";
+  if (h.length < 2 || h.length > 60) return "";
   return h;
 }
 
@@ -48,6 +53,36 @@ function isKojiTitle(title) {
   if (title.indexOf(":") !== -1) return false;
   var n = Array.from(title).length;
   return n >= 2 && n <= 30;
+}
+
+function isPhraseTitle(title) {
+  if (!title || title.indexOf(":") !== -1) return false;
+  if (
+    title === "ことわざ" ||
+    title === "諺" ||
+    title === "慣用句" ||
+    title === "故事成語" ||
+    title === "四字熟語" ||
+    title === "成句"
+  ) {
+    return false;
+  }
+  var chars = Array.from(title);
+  if (chars.length < 2 || chars.length > 40) return false;
+  var jp = 0;
+  for (var i = 0; i < chars.length; i++) {
+    var ch = chars[i];
+    if (/[A-Za-z]/.test(ch)) return false;
+    if (/[ぁ-んァ-ン\u3400-\u9fff]/.test(ch)) jp++;
+  }
+  return jp >= 2;
+}
+
+function titleOk(kind, title) {
+  if (kind === "yojijukugo") return isFourKanjiTitle(title);
+  if (kind === "koji") return isKojiTitle(title);
+  if (kind === "kotowaza" || kind === "kanyouku") return isPhraseTitle(title);
+  return false;
 }
 
 function stripWordWiki(text) {
@@ -81,9 +116,25 @@ function stripWordWiki(text) {
   return s;
 }
 
-function readingFromOkurigana(head) {
-  if (head.indexOf("おくりがな") === -1) return "";
-  var s = head;
+function readingFromHead(head) {
+  var lines = String(head || "").split(/\r?\n/);
+  var s = "";
+  for (var i = 0; i < lines.length; i++) {
+    if (
+      lines[i].indexOf("ふりがな") !== -1 ||
+      lines[i].indexOf("おくりがな") !== -1 ||
+      lines[i].indexOf("{{ruby") !== -1
+    ) {
+      s = lines[i];
+      break;
+    }
+  }
+  if (!s) return "";
+  s = s.replace(/\{\{ふりがな\|[^|}]*\|([^|}]+)(?:\|[^}]*)?\}\}/g, "$1");
+  s = s.replace(/\{\{ruby\|([\s\S]*?)\}\}/g, function (_, inner) {
+    var pipe = inner.lastIndexOf("|");
+    return pipe === -1 ? "" : inner.slice(pipe + 1);
+  });
   s = s.replace(/\{\{おくりがな2\|[^|}]*\|([^|}]*)\|([^|}]*)\|[^|}]*\}\}/g, "$1$2");
   s = s.replace(/\{\{おくりがな\|[^|}]*\|[^|}]*\|([^|}]+)\}\}/g, "$1");
   var prev;
@@ -97,7 +148,7 @@ function readingFromOkurigana(head) {
 }
 
 function minReadingLength(title) {
-  return Array.from(title || "").length;
+  return Array.from(String(title || "").replace(/[、。，,！？!?]/g, "")).length;
 }
 
 function shortenMeaning(text) {
@@ -163,7 +214,7 @@ function collectReadings(scope, jaBody) {
   while ((found = jads.exec(scope))) pushReading(cands, "jads", found[1]);
   var kds = /\{\{kana-DEFAULTSORT\|([^}]+)\}\}/g;
   while ((found = kds.exec(scope))) pushReading(cands, "kds", found[1]);
-  var ds = /\{\{DEFAULTSORT:([^}]+)\}\}/g;
+  var ds = /\{\{(?:DEFAULTSORT|デフォルトソート)[:|]([^}]+)\}\}/g;
   while ((found = ds.exec(scope))) {
     var parts = found[1].trim().split(/\s+/);
     var kana = [];
@@ -172,7 +223,7 @@ function collectReadings(scope, jaBody) {
     }
     if (kana.length) pushReading(cands, "ds", kana[kana.length - 1]);
   }
-  pushReading(cands, "head", readingFromOkurigana(head));
+  pushReading(cands, "head", readingFromHead(head));
   return cands;
 }
 
@@ -230,13 +281,7 @@ function wordNetId(kind, text) {
 }
 
 function parseWiktionaryEntry(title, wikitext, kind) {
-  if (kind === "yojijukugo") {
-    if (!isFourKanjiTitle(title)) return null;
-  } else if (kind === "koji") {
-    if (!isKojiTitle(title)) return null;
-  } else {
-    return null;
-  }
+  if (!titleOk(kind, title)) return null;
   var ja = extractJaSection(wikitext);
   if (!ja) return null;
   var reading = chooseReading(collectReadings(ja.preambleAndJa, ja.body));
@@ -285,17 +330,24 @@ function selectSide(source, local, remote) {
   return stock.slice();
 }
 
+function expressionsFor(source, stock, net) {
+  var out = [];
+  for (var i = 0; i < WORD_KINDS.length; i++) {
+    var key = WORD_KINDS[i];
+    out = out.concat(selectSide(source, stock[key], net[key]));
+  }
+  return out;
+}
+
 function poolForKind(kind, source, stockLists, netLists) {
   var stock = stockLists || {};
   var net = netLists || {};
   var quotes = selectSide(source, stock.quote, net.quote).map(tagQuote);
-  if (kind === "yojijukugo") return selectSide(source, stock.yojijukugo, net.yojijukugo);
-  if (kind === "koji") return selectSide(source, stock.koji, net.koji);
-  if (kind === "all") {
-    return quotes
-      .concat(selectSide(source, stock.yojijukugo, net.yojijukugo))
-      .concat(selectSide(source, stock.koji, net.koji));
+  if (kind === "yojijukugo" || kind === "koji" || kind === "kotowaza" || kind === "kanyouku") {
+    return selectSide(source, stock[kind], net[kind]);
   }
+  if (kind === "expression") return expressionsFor(source, stock, net);
+  if (kind === "all") return quotes.concat(expressionsFor(source, stock, net));
   return quotes;
 }
 
@@ -413,14 +465,13 @@ function writeWordCache(kind, items, storage) {
 }
 
 function loadNetWords(kind, storage) {
-  if (kind !== "yojijukugo" && kind !== "koji") return Promise.resolve([]);
+  if (WORD_KINDS.indexOf(kind) === -1) return Promise.resolve([]);
   var cached = readWordCache(kind, storage);
   if (cached) return Promise.resolve(cached);
   return fetchCategoryTitles(WORD_CATEGORIES[kind]).then(function (titles) {
     var filtered = [];
     for (var i = 0; i < titles.length; i++) {
-      var ok = kind === "yojijukugo" ? isFourKanjiTitle(titles[i]) : isKojiTitle(titles[i]);
-      if (ok) filtered.push(titles[i]);
+      if (titleOk(kind, titles[i])) filtered.push(titles[i]);
     }
     if (filtered.length < WORD_MIN) throw new Error("words-too-few");
     return fetchWikitexts(sampleWordTitles(filtered, WORD_SAMPLE));
@@ -444,6 +495,7 @@ if (typeof module !== "undefined" && module.exports) {
     sampleWordTitles: sampleWordTitles,
     poolForKind: poolForKind,
     isFourKanjiTitle: isFourKanjiTitle,
+    isPhraseTitle: isPhraseTitle,
     loadNetWords: loadNetWords,
     readWordCache: readWordCache,
     WORD_CACHE_KEYS: WORD_CACHE_KEYS

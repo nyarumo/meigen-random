@@ -1,4 +1,4 @@
-var CACHE = "meigen-shell-v3";
+var CACHE = "meigen-shell-v4";
 var ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,8 @@ var ASSETS = [
   "./js/quotes.js",
   "./js/yojijukugo.js",
   "./js/kojiseigo.js",
+  "./js/kotowaza.js",
+  "./js/kanyouku.js",
   "./js/today.js",
   "./js/net.js",
   "./js/words-net.js",

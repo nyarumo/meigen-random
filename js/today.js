@@ -106,7 +106,16 @@ function writeKindPick(iso, kind, id, storage, source) {
     writeStoredOverride(iso, id, storage, source);
     return;
   }
-  if (kind !== "yojijukugo" && kind !== "koji" && kind !== "all") return;
+  if (
+    kind !== "yojijukugo" &&
+    kind !== "koji" &&
+    kind !== "kotowaza" &&
+    kind !== "kanyouku" &&
+    kind !== "expression" &&
+    kind !== "all"
+  ) {
+    return;
+  }
   if (source !== "stock" && source !== "net" && source !== "both") source = "stock";
   var all = readKindPicks(storage);
   all[kind + ":" + source] = { date: iso, id: id };
@@ -184,13 +193,20 @@ function composeWordPost(item) {
   return pack(trimmed + "…", "");
 }
 
-function composeXPost(quote) {
-  if (
-    quote &&
-    (quote.kind === "yojijukugo" || quote.kind === "koji") &&
+function isExpressionPost(quote) {
+  var kind = quote && quote.kind;
+  return (
+    (kind === "yojijukugo" ||
+      kind === "koji" ||
+      kind === "kotowaza" ||
+      kind === "kanyouku") &&
     quote.reading &&
     quote.meaning
-  ) {
+  );
+}
+
+function composeXPost(quote) {
+  if (isExpressionPost(quote)) {
     return composeWordPost(quote);
   }
   var speaker = (quote && quote.speaker) || "";
