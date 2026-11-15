@@ -63,6 +63,40 @@ body {
   letter-spacing: 0.12em;
 }
 
+.kind-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 1.05rem;
+  margin-top: 1.05rem;
+}
+
+.kind-pick button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0.4rem 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.kind-pick button[aria-pressed="true"],
+.kind-pick button[aria-pressed="true"]:hover {
+  color: var(--fg);
+  cursor: default;
+}
+
+.kind-pick button[aria-pressed="false"]:hover {
+  color: var(--fg);
+}
+
+.kind-pick button:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 4px;
+}
+
 .quote {
   flex: 1 1 auto;
 }
@@ -97,8 +131,46 @@ body {
 }
 
 .quote-text.is-status::before,
-.quote-text.is-status::after {
+.quote-text.is-status::after,
+.quote-text.is-word::before,
+.quote-text.is-word::after {
   content: none;
+}
+
+.quote-text.is-word {
+  font-size: clamp(1.7rem, 4.2vw, 2.35rem);
+  letter-spacing: 0.14em;
+  line-height: 1.6;
+}
+
+.quote-text.is-word.is-long {
+  font-size: clamp(1.28rem, 2.5vw, 1.7rem);
+  letter-spacing: 0.04em;
+  line-height: 1.75;
+}
+
+.kind-label {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+}
+
+.reading {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+}
+
+.meaning {
+  margin: 1.45rem 0 0;
+  font-size: 1.02rem;
+  line-height: 1.85;
+}
+
+.byline:not(:has(.speaker:not(:empty))) {
+  display: none;
 }
 
 .byline {
@@ -115,6 +187,10 @@ body {
   color: var(--muted);
   font-size: 0.82rem;
   line-height: 1.6;
+}
+
+.source:empty {
+  display: none;
 }
 
 .toolbar {

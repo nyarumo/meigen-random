@@ -1,11 +1,14 @@
-var CACHE = "meigen-shell-v2";
+var CACHE = "meigen-shell-v3";
 var ASSETS = [
   "./",
   "./index.html",
   "./css/style.css",
   "./js/quotes.js",
+  "./js/yojijukugo.js",
+  "./js/kojiseigo.js",
   "./js/today.js",
   "./js/net.js",
+  "./js/words-net.js",
   "./js/app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

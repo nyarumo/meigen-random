@@ -1,119 +1,239 @@
 (function () {
   var dateEl = document.getElementById("date");
+  var titleEl = document.querySelector(".mast h1");
+  var quoteEl = document.querySelector("main.quote");
+  var labelEl = document.getElementById("kind-label");
   var textEl = document.getElementById("quote-text");
+  var readingEl = document.getElementById("reading");
   var speakerEl = document.getElementById("speaker");
+  var meaningEl = document.getElementById("meaning");
   var sourceEl = document.getElementById("source");
   var anotherBtn = document.getElementById("another");
   var shareX = document.getElementById("share-x");
   var sourceButtons = document.querySelectorAll("[data-source]");
+  var kindButtons = document.querySelectorAll("[data-kind]");
   var current = null;
   var mode = "both";
+  var kind = "quote";
   var netQuotes = [];
-  var netPromise = null;
+  var netYoji = [];
+  var netKoji = [];
+  var quotePromise = null;
+  var wordPromises = { yojijukugo: null, koji: null };
+  var ticket = 0;
 
-  function setModeButtons() {
-    for (var i = 0; i < sourceButtons.length; i++) {
-      var btn = sourceButtons[i];
-      var selected = btn.getAttribute("data-source") === mode;
+  var HEADINGS = {
+    quote: "今日の名言・格言",
+    yojijukugo: "今日の四字熟語",
+    koji: "今日の故事成語",
+    all: "今日のことば"
+  };
+  var ANOTHER = {
+    quote: "別の名言",
+    yojijukugo: "別の四字熟語",
+    koji: "別の故事成語",
+    all: "別のもの"
+  };
+  var LABELS = {
+    quote: "名言",
+    yojijukugo: "四字熟語",
+    koji: "故事成語"
+  };
+
+  function setPressed(buttons, attr, value) {
+    for (var i = 0; i < buttons.length; i++) {
+      var btn = buttons[i];
+      var selected = btn.getAttribute(attr) === value;
       btn.setAttribute("aria-pressed", selected ? "true" : "false");
     }
   }
 
+  function applyChrome() {
+    var heading = HEADINGS[kind] || HEADINGS.quote;
+    titleEl.textContent = heading;
+    document.title = heading;
+    anotherBtn.textContent = ANOTHER[kind] || ANOTHER.quote;
+    setPressed(sourceButtons, "data-source", mode);
+    setPressed(kindButtons, "data-kind", kind);
+  }
+
+  function wordSourceLine(item) {
+    var parts = [];
+    if (item.origin) parts.push("由来：" + item.origin);
+    if (item.net) parts.push("ウィクショナリー日本語版");
+    return parts.join("／");
+  }
+
   function renderStatus(message) {
     current = null;
+    quoteEl.setAttribute("data-kind", kind);
     textEl.classList.add("is-status");
+    textEl.classList.remove("is-word");
+    textEl.classList.remove("is-long");
     textEl.textContent = message;
+    labelEl.hidden = true;
+    labelEl.textContent = "";
+    readingEl.hidden = true;
+    readingEl.textContent = "";
+    meaningEl.hidden = true;
+    meaningEl.textContent = "";
     speakerEl.textContent = "";
     sourceEl.textContent = "";
     shareX.hidden = true;
     shareX.removeAttribute("href");
   }
 
-  function render(quote, iso) {
-    current = quote;
+  function render(item, iso) {
+    var itemKind = item.kind || "quote";
+    var isWord = itemKind === "yojijukugo" || itemKind === "koji";
+    current = item;
+    quoteEl.setAttribute("data-kind", itemKind);
     textEl.classList.remove("is-status");
+    textEl.classList.toggle("is-word", isWord);
+    textEl.classList.toggle("is-long", isWord && Array.from(item.text || "").length > 6);
     dateEl.dateTime = iso;
     dateEl.textContent = formatJstDateJa(iso);
-    textEl.textContent = quote.text;
-    speakerEl.textContent = quote.speaker;
-    sourceEl.textContent = quote.source;
-    shareX.href = xIntentUrl(quote);
+    labelEl.hidden = false;
+    labelEl.textContent = LABELS[itemKind] || "";
+    textEl.textContent = item.text;
+    if (isWord) {
+      readingEl.hidden = false;
+      readingEl.textContent = item.reading || "";
+      meaningEl.hidden = !item.meaning;
+      meaningEl.textContent = item.meaning || "";
+      speakerEl.textContent = "";
+      sourceEl.textContent = wordSourceLine(item);
+    } else {
+      readingEl.hidden = true;
+      readingEl.textContent = "";
+      meaningEl.hidden = true;
+      meaningEl.textContent = "";
+      speakerEl.textContent = item.speaker || "";
+      sourceEl.textContent = item.source || "";
+    }
+    shareX.href = xIntentUrl(item);
     shareX.hidden = false;
   }
 
-  function pool() {
-    return poolForSource(mode, QUOTES, netQuotes);
+  function viewPool() {
+    return poolForKind(
+      kind,
+      mode,
+      { quote: QUOTES, yojijukugo: YOJIJUKUGO, koji: KOJISEIGO },
+      { quote: netQuotes, yojijukugo: netYoji, koji: netKoji }
+    );
   }
 
-  function ensureNet() {
+  function remember(iso, item) {
+    if (kind === "quote") {
+      writeStoredOverride(iso, item.id, null, mode);
+      return;
+    }
+    writeKindPick(iso, kind, item.id, null, mode);
+  }
+
+  function storedOverride() {
+    if (kind === "quote") return readStoredOverride();
+    return kindPickOverride(kind, mode);
+  }
+
+  function ensureQuoteNet() {
     if (netQuotes.length) return Promise.resolve(netQuotes);
-    if (netPromise) return netPromise;
-    netPromise = loadNetQuotes()
-      .then(function (quotes) {
+    if (quotePromise) return quotePromise;
+    quotePromise = loadNetQuotes().then(
+      function (quotes) {
         netQuotes = quotes;
+        quotePromise = null;
         return quotes;
-      })
-      .then(
-        function (quotes) {
-          netPromise = null;
-          return quotes;
-        },
-        function (err) {
-          netPromise = null;
-          throw err;
-        }
-      );
-    return netPromise;
+      },
+      function (err) {
+        quotePromise = null;
+        throw err;
+      }
+    );
+    return quotePromise;
+  }
+
+  function ensureWordNet(which) {
+    var ready = which === "yojijukugo" ? netYoji : netKoji;
+    if (ready.length) return Promise.resolve(ready);
+    if (wordPromises[which]) return wordPromises[which];
+    wordPromises[which] = loadNetWords(which).then(
+      function (items) {
+        if (which === "yojijukugo") netYoji = items;
+        else netKoji = items;
+        wordPromises[which] = null;
+        return items;
+      },
+      function (err) {
+        wordPromises[which] = null;
+        throw err;
+      }
+    );
+    return wordPromises[which];
+  }
+
+  function needs(name) {
+    if (mode === "stock") return false;
+    if (name === "quote") return (kind === "quote" || kind === "all") && !netQuotes.length;
+    if (name === "yojijukugo") return (kind === "yojijukugo" || kind === "all") && !netYoji.length;
+    if (name === "koji") return (kind === "koji" || kind === "all") && !netKoji.length;
+    return false;
+  }
+
+  function showFromPool(iso) {
+    var items = viewPool();
+    var item = quoteForToday(items, iso, storedOverride(), mode);
+    if (!item) {
+      renderStatus("ネットから取得できませんでした");
+      return;
+    }
+    remember(iso, item);
+    render(item, iso);
   }
 
   function showToday() {
+    var my = ++ticket;
     var iso = getJstDateIso();
     dateEl.dateTime = iso;
     dateEl.textContent = formatJstDateJa(iso);
-    setModeButtons();
+    applyChrome();
 
-    if (mode === "stock") {
+    var jobs = [];
+    if (needs("quote")) jobs.push(ensureQuoteNet());
+    if (needs("yojijukugo")) jobs.push(ensureWordNet("yojijukugo"));
+    if (needs("koji")) jobs.push(ensureWordNet("koji"));
+    if (!jobs.length) {
       showFromPool(iso);
       return;
     }
 
-    if (!netQuotes.length) {
-      renderStatus("ネットから今日の名言を取っています");
-      ensureNet().then(
-        function () {
-          showFromPool(iso);
-        },
-        function () {
-          if (mode === "both") {
-            showFromPool(iso);
-            return;
+    renderStatus(
+      kind === "quote" ? "ネットから今日の名言を取っています" : "ネットから取得しています"
+    );
+    Promise.all(
+      jobs.map(function (job) {
+        return job.then(
+          function () {
+            return true;
+          },
+          function () {
+            return false;
           }
-          renderStatus("ネットから取得できませんでした");
-        }
-      );
-      return;
-    }
-
-    showFromPool(iso);
-  }
-
-  function showFromPool(iso) {
-    var quotes = pool();
-    var quote = quoteForToday(quotes, iso, readStoredOverride(), mode);
-    if (!quote) {
-      renderStatus("ネットから取得できませんでした");
-      return;
-    }
-    writeStoredOverride(iso, quote.id, null, mode);
-    render(quote, iso);
+        );
+      })
+    ).then(function () {
+      if (my !== ticket) return;
+      showFromPool(iso);
+    });
   }
 
   anotherBtn.addEventListener("click", function () {
     if (!current) return;
     var iso = getJstDateIso();
-    var next = pickReplacement(pool(), current.id);
+    var next = pickReplacement(viewPool(), current.id);
     if (!next) return;
-    writeStoredOverride(iso, next.id, null, mode);
+    remember(iso, next);
     render(next, iso);
   });
 
@@ -122,6 +242,15 @@
       var nextMode = event.currentTarget.getAttribute("data-source");
       if (!nextMode || nextMode === mode) return;
       mode = nextMode;
+      showToday();
+    });
+  }
+
+  for (var k = 0; k < kindButtons.length; k++) {
+    kindButtons[k].addEventListener("click", function (event) {
+      var nextKind = event.currentTarget.getAttribute("data-kind");
+      if (!nextKind || nextKind === kind) return;
+      kind = nextKind;
       showToday();
     });
   }

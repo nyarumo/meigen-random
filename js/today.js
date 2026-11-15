@@ -1,4 +1,5 @@
 var STORAGE_KEY = "meigen-today-v1";
+var KIND_KEY = "meigen-kind-v1";
 
 function getJstDateIso(now) {
   var date = now || new Date();
@@ -83,6 +84,49 @@ function writeStoredOverride(iso, id, storage, source) {
   }
 }
 
+function readKindPicks(storage) {
+  try {
+    var raw;
+    if (storage && typeof storage.getItem === "function") {
+      raw = storage.getItem(KIND_KEY);
+    } else if (typeof localStorage !== "undefined") {
+      raw = localStorage.getItem(KIND_KEY);
+    }
+    if (!raw) return {};
+    var data = JSON.parse(raw);
+    if (!data || typeof data !== "object") return {};
+    return data;
+  } catch (e) {
+    return {};
+  }
+}
+
+function writeKindPick(iso, kind, id, storage, source) {
+  if (kind === "quote") {
+    writeStoredOverride(iso, id, storage, source);
+    return;
+  }
+  if (kind !== "yojijukugo" && kind !== "koji" && kind !== "all") return;
+  if (source !== "stock" && source !== "net" && source !== "both") source = "stock";
+  var all = readKindPicks(storage);
+  all[kind + ":" + source] = { date: iso, id: id };
+  var payload = JSON.stringify(all);
+  try {
+    if (storage && typeof storage.setItem === "function") {
+      storage.setItem(KIND_KEY, payload);
+      return;
+    }
+    if (typeof localStorage !== "undefined") localStorage.setItem(KIND_KEY, payload);
+  } catch (e) {}
+}
+
+function kindPickOverride(kind, source, storage) {
+  if (source !== "stock" && source !== "net" && source !== "both") source = "stock";
+  var rec = readKindPicks(storage)[kind + ":" + source];
+  if (!rec || typeof rec.date !== "string" || typeof rec.id !== "string") return null;
+  return { date: rec.date, id: rec.id, source: source };
+}
+
 function quoteById(quotes, id) {
   for (var i = 0; i < quotes.length; i++) {
     if (quotes[i].id === id) return quotes[i];
@@ -124,7 +168,31 @@ function xWeightedLength(text) {
   return n;
 }
 
+function composeWordPost(item) {
+  var head = String((item && item.text) || "") + "（" + String((item && item.reading) || "") + "）";
+  var meaning = String((item && item.meaning) || "");
+  var origin = item && item.origin ? "由来：" + item.origin : "";
+  function pack(body, note) {
+    return head + "\n" + body + (note ? "\n" + note : "");
+  }
+  if (xWeightedLength(pack(meaning, origin)) <= 280) return pack(meaning, origin);
+  if (xWeightedLength(pack(meaning, "")) <= 280) return pack(meaning, "");
+  var trimmed = meaning;
+  while (trimmed.length && xWeightedLength(pack(trimmed + "…", "")) > 280) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return pack(trimmed + "…", "");
+}
+
 function composeXPost(quote) {
+  if (
+    quote &&
+    (quote.kind === "yojijukugo" || quote.kind === "koji") &&
+    quote.reading &&
+    quote.meaning
+  ) {
+    return composeWordPost(quote);
+  }
   var speaker = (quote && quote.speaker) || "";
   var text = (quote && quote.text) || "";
   var suffix = "\n—— " + speaker;
@@ -154,6 +222,9 @@ if (typeof module !== "undefined" && module.exports) {
     defaultQuoteIndex: defaultQuoteIndex,
     readStoredOverride: readStoredOverride,
     writeStoredOverride: writeStoredOverride,
+    readKindPicks: readKindPicks,
+    writeKindPick: writeKindPick,
+    kindPickOverride: kindPickOverride,
     quoteById: quoteById,
     quoteForToday: quoteForToday,
     pickReplacement: pickReplacement,
