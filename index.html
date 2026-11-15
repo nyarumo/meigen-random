@@ -8,7 +8,7 @@
     />
     <meta
       name="description"
-      content="日本時間の日付で、今日の名言・四字熟語・故事成語を一つ出す。"
+      content="日本時間の日付で、今日の名言と慣用表現を一つ出す。"
     />
     <meta name="theme-color" content="#f3eee4" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -27,11 +27,8 @@
         <h1>今日の名言・格言</h1>
         <div class="kind-pick" role="group" aria-label="表示する種類">
           <button type="button" data-kind="quote" aria-pressed="true">名言</button>
-          <button type="button" data-kind="yojijukugo" aria-pressed="false">
-            四字熟語
-          </button>
-          <button type="button" data-kind="koji" aria-pressed="false">
-            故事成語
+          <button type="button" data-kind="expression" aria-pressed="false">
+            慣用表現
           </button>
           <button type="button" data-kind="all" aria-pressed="false">すべて</button>
         </div>
@@ -68,6 +65,8 @@
     <script src="js/quotes.js"></script>
     <script src="js/yojijukugo.js"></script>
     <script src="js/kojiseigo.js"></script>
+    <script src="js/kotowaza.js"></script>
+    <script src="js/kanyouku.js"></script>
     <script src="js/today.js"></script>
     <script src="js/net.js"></script>
     <script src="js/words-net.js"></script>

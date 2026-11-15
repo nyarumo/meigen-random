@@ -16,28 +16,28 @@
   var mode = "both";
   var kind = "quote";
   var netQuotes = [];
-  var netYoji = [];
-  var netKoji = [];
+  var netWords = { yojijukugo: [], koji: [], kotowaza: [], kanyouku: [] };
   var quotePromise = null;
-  var wordPromises = { yojijukugo: null, koji: null };
+  var wordPromises = { yojijukugo: null, koji: null, kotowaza: null, kanyouku: null };
   var ticket = 0;
+  var WORD_KINDS = ["yojijukugo", "koji", "kotowaza", "kanyouku"];
 
   var HEADINGS = {
     quote: "今日の名言・格言",
-    yojijukugo: "今日の四字熟語",
-    koji: "今日の故事成語",
+    expression: "今日の慣用表現",
     all: "今日のことば"
   };
   var ANOTHER = {
     quote: "別の名言",
-    yojijukugo: "別の四字熟語",
-    koji: "別の故事成語",
+    expression: "別の慣用表現",
     all: "別のもの"
   };
   var LABELS = {
     quote: "名言",
     yojijukugo: "四字熟語",
-    koji: "故事成語"
+    koji: "故事成語",
+    kotowaza: "諺",
+    kanyouku: "慣用句"
   };
 
   function setPressed(buttons, attr, value) {
@@ -85,7 +85,7 @@
 
   function render(item, iso) {
     var itemKind = item.kind || "quote";
-    var isWord = itemKind === "yojijukugo" || itemKind === "koji";
+    var isWord = WORD_KINDS.indexOf(itemKind) !== -1;
     current = item;
     quoteEl.setAttribute("data-kind", itemKind);
     textEl.classList.remove("is-status");
@@ -119,8 +119,20 @@
     return poolForKind(
       kind,
       mode,
-      { quote: QUOTES, yojijukugo: YOJIJUKUGO, koji: KOJISEIGO },
-      { quote: netQuotes, yojijukugo: netYoji, koji: netKoji }
+      {
+        quote: QUOTES,
+        yojijukugo: YOJIJUKUGO,
+        koji: KOJISEIGO,
+        kotowaza: KOTOWAZA,
+        kanyouku: KANYOUKU
+      },
+      {
+        quote: netQuotes,
+        yojijukugo: netWords.yojijukugo,
+        koji: netWords.koji,
+        kotowaza: netWords.kotowaza,
+        kanyouku: netWords.kanyouku
+      }
     );
   }
 
@@ -155,13 +167,11 @@
   }
 
   function ensureWordNet(which) {
-    var ready = which === "yojijukugo" ? netYoji : netKoji;
-    if (ready.length) return Promise.resolve(ready);
+    if (netWords[which].length) return Promise.resolve(netWords[which]);
     if (wordPromises[which]) return wordPromises[which];
     wordPromises[which] = loadNetWords(which).then(
       function (items) {
-        if (which === "yojijukugo") netYoji = items;
-        else netKoji = items;
+        netWords[which] = items;
         wordPromises[which] = null;
         return items;
       },
@@ -176,8 +186,9 @@
   function needs(name) {
     if (mode === "stock") return false;
     if (name === "quote") return (kind === "quote" || kind === "all") && !netQuotes.length;
-    if (name === "yojijukugo") return (kind === "yojijukugo" || kind === "all") && !netYoji.length;
-    if (name === "koji") return (kind === "koji" || kind === "all") && !netKoji.length;
+    if (WORD_KINDS.indexOf(name) !== -1) {
+      return (kind === "expression" || kind === "all") && !netWords[name].length;
+    }
     return false;
   }
 
@@ -201,8 +212,9 @@
 
     var jobs = [];
     if (needs("quote")) jobs.push(ensureQuoteNet());
-    if (needs("yojijukugo")) jobs.push(ensureWordNet("yojijukugo"));
-    if (needs("koji")) jobs.push(ensureWordNet("koji"));
+    for (var n = 0; n < WORD_KINDS.length; n++) {
+      if (needs(WORD_KINDS[n])) jobs.push(ensureWordNet(WORD_KINDS[n]));
+    }
     if (!jobs.length) {
       showFromPool(iso);
       return;

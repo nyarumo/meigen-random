@@ -1,7 +1,7 @@
 {
   "name": "今日の名言・格言",
   "short_name": "今日の名言",
-  "description": "日本時間の日付で、今日の名言・四字熟語・故事成語を一つ出す。",
+  "description": "日本時間の日付で、今日の名言と慣用表現を一つ出す。",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
